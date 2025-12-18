@@ -79,23 +79,16 @@ class MultiTapeTM:
         return headPos
 
     def enforcePadding(self, tapes, tapeHead):
-        """Ensure each tape has exactly 2 blanks at both ends without adding extra."""
+        """Ensure each tape has 2 blanks at both ends and adjust heads."""
         for i in range(self.numTapes):
             # left padding
-            leftPadding = tapeHead[i]
-            if leftPadding < 2:
-                # add enough blanks to make left padding exactly 2
-                for _ in range(2 - leftPadding):
+            if tapeHead[i] < 2:  #adjust head if too close to left edge
+                while tapeHead[i] < 2:
                     tapes[i].insert(0, self.blank)
                     tapeHead[i] += 1
-
             # right padding
-            rightPadding = len(tapes[i]) - tapeHead[i] - 1
-            
-            if rightPadding < 2:
-                # add enough blanks to make right padding exactly 2
-                for _ in range(2 - rightPadding):
-                    tapes[i].append(self.blank)
+            while len(tapes[i]) - tapeHead[i] <= 2:
+                tapes[i].append(self.blank)
 
     def deltaHat(self, inputString, maxSteps=10000, printing=True):
         """
@@ -169,7 +162,7 @@ class MultiTapeTM:
             
             # print current tapes at each step
             if printing:
-                print(f"Step {steps}: State={currentState}, Heads={tapeHead}")
+                print(f"Step {steps}: Current State={currentState}, Heads={tapeHead}")
                 for i, t in enumerate(tapes):
                     print(f"Tape {i+1} current: {''.join(t)}")
                 print("-" * 40)
