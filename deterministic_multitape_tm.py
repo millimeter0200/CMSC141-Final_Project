@@ -12,6 +12,14 @@ class State:
         writeSymbols: list of symbols to write on each tape
         moves: list of directions for each tape: 'L', 'R', 'S'
         """
+
+        #check if deterministic
+        key = tuple(readSymbols)
+        if key in self.next:
+            raise ValueError(
+                f"Nondeterministic transition in state {self.name} on {key}"
+            )
+
         self.next[tuple(readSymbols)] = (nextState, writeSymbols, moves)
 
     def delta(self, readSymbols):
@@ -27,30 +35,28 @@ class MultiTapeTM:
         sigma: list of input alphabet symbols
         numTapes: number of tapes in the TM
         """
-        self.q = {state.name: state for state in states}
-        self.f = finalStates
-        self.sigma = sigma
         self.numTapes = numTapes
+        self.sigma = sigma
         self.blank = "_"
+
+        self.q = {s.name: s for s in states}  # state lookup
+        self.f = set(finalStates)             # final states
 
         # initial state = first state in list
         self.startState = states[0].name
 
     def initializeTapes(self, inputString):
         """Prepare tapes and heads."""
-        tapes = []
 
-        # Tape 1 contains input
-        tapes.append(list(inputString))
+        padding = [self.blank, self.blank]
+        tapes = [padding + list(inputString) + padding]  # Tape 1
 
-        # Other tapes start blank
         for _ in range(1, self.numTapes):
-            tapes.append([self.blank])
-
-        # All heads start at position 0
-        heads = [0 for _ in range(self.numTapes)]
-
-        return tapes, heads
+            tapes.append(padding + padding)                # Tapes 2 & 3
+        
+        # all heads start after padding
+        tapeHead = [len(padding)] * self.numTapes 
+        return tapes, tapeHead
 
     def safeRead(self, tape, headPos):
         """Read symbol; if out of bounds, return blank."""
@@ -60,61 +66,136 @@ class MultiTapeTM:
 
     def safeWrite(self, tape, headPos, symbol):
         """Write symbol; auto-extend tape if needed."""
+        # extend left
         if headPos < 0:
-            # extend left
-            tape.insert(0, symbol)
-        elif headPos >= len(tape):
-            # extend right
-            # pad with blanks until headPos exists
-            while len(tape) <= headPos:
-                tape.append(self.blank)
-            tape[headPos] = symbol
-        else:
-            tape[headPos] = symbol
+            tape.insert(0, self.blank)
+            return 0
 
-    def deltaHat(self, inputString, maxSteps=10000):
+        # extend right
+        while headPos >= len(tape):
+            tape.append(self.blank)
+
+        tape[headPos] = symbol
+        return headPos
+
+    def enforcePadding(self, tapes, tapeHead):
+        """Ensure each tape has exactly 2 blanks at both ends and adjust heads accordingly."""
+
+        for i in range(self.numTapes):
+            tape = tapes[i]
+
+            #LEFT PADDING
+            leftBlanks = 0
+
+            # count existing blanks at the left
+            for symbol in tape:
+                if symbol == self.blank:
+                    leftBlanks += 1
+                else:
+                    break
+
+            #add blanks if fewer than 2
+            if leftBlanks < 2:
+                needed = 2 - leftBlanks
+                tape = [self.blank] * needed + tape
+                tapeHead[i] += needed  #shift head to keep pointing at same symbol
+
+            #RIGHT PADDING
+            rightBlanks = 0
+
+            #count existing blanks at the right
+            for symbol in reversed(tape):
+                if symbol == self.blank:
+                    rightBlanks += 1
+                else:
+                    break
+
+            #add blanks if fewer than 2
+            if rightBlanks < 2:
+                needed = 2 - rightBlanks
+                tape.extend([self.blank] * needed)
+
+            #save back the modified tape
+            tapes[i] = tape
+
+    def deltaHat(self, inputString, maxSteps=10000, printing=True):
         """
         Runs the multitape TM on the input string.
         Returns True if accepted, False if rejected.
         """
-        tapes, heads = self.initializeTapes(inputString)
+        tapes, tapeHead = self.initializeTapes(inputString)
         currentState = self.startState
-
         steps = 0
+
+        # frozen copy of original tape
+        originalTapes = [list(t) for t in tapes]  
+
+        if printing:
+            print("Original tapes:")
+            for i, t in enumerate(originalTapes):
+                print(f"Tape {i+1}: {''.join(t)}")
+            print("-" * 40)
+
         while True:
             if steps > maxSteps:
                 print("Machine halted: max steps exceeded.")
                 return False
 
-            # Check if final state reached
+            #check if final state reached
             if currentState in self.f:
+                print(f"ACCEPTED at step {steps}")
+                # print final tapes
+                if printing:
+                    print("Final tapes:")
+                    for i, t in enumerate(tapes):
+                        print(f"Tape {i+1}: {''.join(t)}")
                 return True
 
-            # Read symbols from each tape
+            #read symbols from each tape
             readSymbols = []
             for i in range(self.numTapes):
-                readSymbols.append(self.safeRead(tapes[i], heads[i]))
+                readSymbols.append(self.safeRead(tapes[i], tapeHead[i]))
 
+            #get transition for current read symbols
             stateObj = self.q[currentState]
             transition = stateObj.delta(tuple(readSymbols))
 
+            #reject no transition defined
             if transition is None:
-                # No transition defined → reject
+                print(f"REJECTED at state {currentState}, symbols {readSymbols}")
+                if printing:
+                    print("Final tapes:")
+                    for i, t in enumerate(tapes):
+                        print(f"Tape {i+1}: {''.join(t)}")
                 return False
 
             nextState, writeSymbols, moves = transition
             currentState = nextState
 
-            # Write to tapes
+            #write to tapes
             for i in range(self.numTapes):
-                self.safeWrite(tapes[i], heads[i], writeSymbols[i])
+                tapeHead[i] = self.safeWrite(tapes[i], tapeHead[i], writeSymbols[i])
 
-            # Move heads
+            #move heads
             for i in range(self.numTapes):
                 if moves[i] == "L":
-                    heads[i] -= 1
+                    tapeHead[i] -= 1
                 elif moves[i] == "R":
-                    heads[i] += 1
-                # If moves[i] == "S": do nothing
+                    tapeHead[i] += 1
+                else:            #"S" no movement
+                    pass
+
+            # enforce padding after every step
+            self.enforcePadding(tapes, tapeHead)
+            
+            # print current tapes at each step
+            if printing:
+                print(f"Step {steps}: Current State={currentState}, Heads={tapeHead}")
+                for i, t in enumerate(tapes):
+                    print(f"Tape {i+1} current: {''.join(t)}")
+                print("-" * 40)
+
 
             steps += 1
+
+
