@@ -69,5 +69,5 @@ if __name__ == "__main__":
 
 
     # run TM on input
-    input_string = "11+101="
+    input_string = "101+11="
     tm.deltaHat(input_string, printing=True)

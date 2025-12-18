@@ -78,17 +78,22 @@ class MultiTapeTM:
         tape[headPos] = symbol
         return headPos
 
-    def enforcePadding(self, tapes, tapeHead):
+    def enforcePadding(self, tape, tapeHead):
         """Ensure each tape has 2 blanks at both ends and adjust heads."""
+        
         for i in range(self.numTapes):
-            # left padding
-            if tapeHead[i] < 2:  #adjust head if too close to left edge
-                while tapeHead[i] < 2:
-                    tapes[i].insert(0, self.blank)
-                    tapeHead[i] += 1
-            # right padding
-            while len(tapes[i]) - tapeHead[i] <= 2:
-                tapes[i].append(self.blank)
+            #left padding: only add blanks if fewer than 2 blanks before head
+            leftBlanks = tapeHead[i]
+            if leftBlanks < 2:
+                needed = 2 - leftBlanks
+                tape[i] = [self.blank] * needed + tape[i]
+                tapeHead[i] += needed  # adjust head to point to same symbol
+
+            #right padding: only add blanks if fewer than 2 blanks after head
+            rightBlanks = len(tape[i]) - tapeHead[i] - 1
+            if rightBlanks < 2:
+                needed = 2 - rightBlanks
+                tape[i].extend([self.blank] * needed)
 
     def deltaHat(self, inputString, maxSteps=10000, printing=True):
         """
