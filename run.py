@@ -1,4 +1,4 @@
-from deterministic_multitape_tm import MultiTapeTM, State
+from multitape_tm import MultiTapeTM, State
 
 if __name__ == "__main__":
 
@@ -64,7 +64,7 @@ if __name__ == "__main__":
         states=states,
         finalStates=["qf"],
         sigma=["0","1","+","="],
-        numTapes=3
+        numTapes=5  # change number of tapes here
     )
 
 
