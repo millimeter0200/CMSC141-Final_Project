@@ -30,7 +30,7 @@ class State:
         self.next[tuple(readSymbols)] = (nextState, writeSymbols, moves)    #stores the rule
 
     # given what the machine is seeing right now, find the rule
-    # if a rule exists → return it; if no rule exists → return None ... NONE = REJECTION
+    # if a rule exists → return it; if no rule exists → return None ... NONE = REJECTION since TM can't proceed w undefined transitions
     def delta(self, readSymbols):
         """Return the transition for the given readSymbols tuple."""
         return self.next.get(tuple(readSymbols), None)
@@ -46,7 +46,7 @@ class MultiTapeTM:
         """
         self.numTapes = numTapes    # stores how many tapes exist
         self.sigma = sigma          # stores allowed input symbols
-        self.blank = "_"            # blank symbol
+        self.blank = "B"            # blank symbol
 
         self.q = {s.name: s for s in states}  # state lookup (self.q["q0"] → State object )
         self.f = set(finalStates)             # stores accepting states in a set so checking is fast          
